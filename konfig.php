@@ -1,12 +1,12 @@
 <?php
 	require_once ('engine/all.php');
 	$GLOBALS[CONFIG]['header']['onload'] .= "";
-	$GLOBALS[CONFIG]['header']['others'] = ''.NN;
+	$GLOBALS[CONFIG]['header']['others'] = '<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>'.NN;
 	$GLOBALS[CONFIG]['header']['title'] = 'Konfigurátor';
 
 	switch (@$_GET['action']) {
 		case 'select':
-			if (isset($_POST['select']) && isset($_POST['sel'])) {
+			if (isset($_POST['sel'])) {
 				$_SESSION['sel'] = $_POST['sel'];
 				$_SESSION['name'] = fileNameID(implode(',',$_POST['sel']));
 			}
@@ -21,8 +21,29 @@
 		td {text-align:right;}
 		table {margin: 10px 0 10px 0;}
 	</style>
+
 	<form action="?action=select" method="post">
 <?php
+// nastaveni prvni moznosti
+if (!isset($_SESSION['sel'])) {
+	$STH = $DBH->prepare("SELECT * FROM selects ORDER BY ID_SELECTS");
+	$STH->execute();
+	$STH->setFetchMode(PDO::FETCH_ASSOC);
+	while ($z = $STH->fetch()) {
+		$STH2 = $DBH->prepare("SELECT * FROM options WHERE SELECTS_ID=? ORDER BY SELECTS_ID");
+		$STH2->execute(array((int)$z['ID_SELECTS']));
+		$STH2->setFetchMode(PDO::FETCH_ASSOC);
+		$z2 = $STH2->fetch();
+		$_SESSION['sel'][$z['ID_SELECTS']] = $z2['ID_OPTIONS'];
+		$_SESSION['name'] = fileNameID(implode(',',$_SESSION['sel']));
+	}
+	//natvrdo navolena prvni platna garaz
+	$_SESSION['sel']['1'] = 2;	
+	//vytvoreni nazvu souboru
+	$_SESSION['name'] = fileNameID(implode(',',$_SESSION['sel']));
+}
+
+//vypis selectu
 	$STH = $DBH->prepare("SELECT * FROM selects ORDER BY ID_SELECTS");
 	$STH->execute();
 	$STH->setFetchMode(PDO::FETCH_ASSOC);
@@ -32,17 +53,17 @@
 		$STH2 = $DBH->prepare("SELECT * FROM options WHERE SELECTS_ID=? ORDER BY ID_OPTIONS");
 		$STH2->execute(array((int)$z['ID_SELECTS']));
 		$STH2->setFetchMode(PDO::FETCH_ASSOC);
-		echo '	<select name="sel['.$z['ID_SELECTS'].']">'.NN;
+		echo '	<select name="sel['.$z['ID_SELECTS'].']" onchange="this.form.submit();">'.NN;
 		while ($z2 = $STH2->fetch()) {
 			echo '		<option value="'.$z2['ID_OPTIONS'].'" '.($z2['ID_OPTIONS'] == $_SESSION['sel'][$z['ID_SELECTS']] ? 'selected="selected"' : '').'>'.htmlspecialchars($z2['NAME']).'</option>'.NN;
 		}
 		echo '</select>'.NN;
 		echo '</div>'.NN;
 	}
+//	echo '<input type="submit" name="select" value="Vybrat" />';
 ?>
-		<input type="submit" name="select" value="Vybrat" />
 	</form>
-	<div>
+
 <?php
 	echo '<img src="foto/'.$_SESSION['name'].'" alt="obrázek není k dispozici" style="width:600px"/>'.NN;
 ?>
@@ -50,6 +71,7 @@
 	<div>
 <?php
 	if (isset($_SESSION['sel'])) {
+	
 		$STH = $DBH->prepare("SELECT * FROM options WHERE ID_OPTIONS IN (".implode(',',$_SESSION['sel']).") ORDER BY SELECTS_ID, ID_OPTIONS");
 		$STH->execute();
 		$STH->setFetchMode(PDO::FETCH_ASSOC);
